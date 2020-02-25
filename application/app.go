@@ -14,7 +14,9 @@ func main() {
 	r := mux.NewRouter()
 
 	r.HandleFunc("/container", service.ListContainers)
-	r.Handle("/chaos-simulator/container/{containerid}", new(service.ChaosPauseHandler))
+	r.Handle("/chaos-simulator/container/{containerid}/pause", new(service.ChaosPauseHandler))
+	r.Handle("/chaos-simulator/container/{containerid}/kill", new(service.ChaosKillHandler))
+	r.Handle("/chaos-simulator/container/{containerid}/network", new(service.ChaosNetworkHandler))
 
 	s := &http.Server{
 		Addr:           ":8080",

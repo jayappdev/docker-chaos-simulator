@@ -32,7 +32,7 @@ type ChaosCommandExecutor interface {
 	Execute() (error, io.Reader)
 }
 
-const ChaosCommandOSExecutor = "pumba"
+const ChaosCommandOSExecutor = "pumba --log-level info"
 
 var ChaosCommandExecutorLogger = loggo.GetLogger("listContainer")
 
@@ -55,9 +55,48 @@ func createChaosWithOperationOnly(container, operation string) *ChaosCommand {
 	}
 }
 
-func createChaosWithOperationAndArgs(container, operation string, jsonStream io.Reader) *ChaosCommand {
+func convertToMap(args []Arg) map[string]Arg {
+	argLookup := make(map[string]Arg)
 
-	c := createChaosWithOperationOnly(container, operation)
+	for _, arg := range args {
+		argLookup[arg.Parameter] = arg
+	}
+
+	return argLookup
+}
+
+func extractParameters(args []Arg, parameters ...string) []Arg {
+	argLookup := convertToMap(args)
+
+	var returnArgs []Arg
+
+	for _, parameter := range parameters {
+		if val, ok := argLookup[parameter]; ok {
+			returnArgs = append(returnArgs, val)
+		}
+	}
+
+	return returnArgs
+}
+
+func excludeParameters(args []Arg, parameters ...string) []Arg {
+	argLookup := convertToMap(args)
+
+	var returnArgs []Arg
+
+	for _, parameter := range parameters {
+		delete(argLookup, parameter)
+	}
+
+	for _, v := range argLookup {
+		returnArgs = append(returnArgs, v)
+	}
+
+	return returnArgs
+}
+
+func FromJson(jsonStream io.Reader) []Arg {
+	var args []Arg
 
 	dec := json.NewDecoder(jsonStream)
 	for {
@@ -67,10 +106,32 @@ func createChaosWithOperationAndArgs(container, operation string, jsonStream io.
 		} else if err != nil {
 			log.Fatal(err)
 		}
-		c.args = append(c.args, m)
+		args = append(args, m)
 	}
 
+	return args
+}
+
+func createChaosWithOperationAndArgsJson(container, operation string, jsonStream io.Reader) *ChaosCommand {
+	c := createChaosWithOperationOnly(container, operation)
+	c.args = append(c.args, FromJson(jsonStream)...)
 	return c
+}
+
+func createChaosWithOperationAndArgs(container, operation string, args []Arg) *ChaosCommand {
+	c := createChaosWithOperationOnly(container, operation)
+	c.args = append(c.args, args...)
+	return c
+}
+
+func concatenateArgs(args ...Arg) string {
+	var commandsToExecute []string
+
+	for _, arg := range args {
+		commandsToExecute = append(commandsToExecute, arg.String())
+	}
+
+	return strings.Join(commandsToExecute, " ")
 }
 
 func (c ChaosCommand) Validate() error {
@@ -78,15 +139,7 @@ func (c ChaosCommand) Validate() error {
 }
 
 func (c *ChaosCommand) getFullCommand(chaosCommand string) string {
-	var args []string
-
-	args = append(args, ArgInit(chaosCommand, ArgInit(c.operation, c.container).String()).String())
-
-	for _, arg := range c.args {
-		args = append(args, arg.String())
-	}
-
-	return strings.Join(args, " ")
+	return strings.Join([]string{chaosCommand, c.operation, concatenateArgs(c.args...), c.container}, " ")
 }
 
 func (c *ChaosCommand) Execute() (error, io.Reader) {

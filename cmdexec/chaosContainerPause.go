@@ -9,5 +9,5 @@ type ChaosPauseSimulator struct {
 }
 
 func CreateChaosPauseSimulator(container string, jsonStream io.Reader) ChaosPauseSimulator {
-	return ChaosPauseSimulator{createChaosWithOperationAndArgs(container, CONTAINER_PAUSER, jsonStream)}
+	return ChaosPauseSimulator{createChaosWithOperationAndArgsJson(container, CONTAINER_PAUSER, jsonStream)}
 }
