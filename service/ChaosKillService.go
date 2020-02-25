@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -24,8 +25,11 @@ func (c *ChaosKillHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Service ChaosKillHandler is called " + vars["containerid"])
 
 	pause := cmdexec.CreateChaosKillSimulator(vars["containerid"], r.Body)
-	err, _ := pause.Execute()
+	err, _, errorReader := pause.Execute()
 	if err != nil {
+		errorLines, _ := ioutil.ReadAll(errorReader)
+		w.Write([]byte("Error while applying Kill Chaos " + "\n" + string(errorLines)))
+
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

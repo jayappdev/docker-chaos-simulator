@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -24,12 +25,14 @@ func (c *ChaosPauseHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Service ChaosPauseHandler is called " + vars["containerid"])
 
 	pause := cmdexec.CreateChaosPauseSimulator(vars["containerid"], r.Body)
-	err, _ := pause.Execute()
+	err, _, errorReader := pause.Execute()
 	if err != nil {
+		errorLines, _ := ioutil.ReadAll(errorReader)
+		w.Write([]byte("Error while applying Pause Chaos " + "\n" + string(errorLines)))
+
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte("OK"))
 }

@@ -1,12 +1,11 @@
 package cmdexec
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
-	"os"
 	"os/exec"
 	"strings"
 
@@ -142,7 +141,7 @@ func (c *ChaosCommand) getFullCommand(chaosCommand string) string {
 	return strings.Join([]string{chaosCommand, c.operation, concatenateArgs(c.args...), c.container}, " ")
 }
 
-func (c *ChaosCommand) Execute() (error, io.Reader) {
+func (c *ChaosCommand) Execute() (error, io.Reader, io.Reader) {
 
 	err := c.Validate()
 	if err != nil {
@@ -157,48 +156,27 @@ func (c *ChaosCommand) Execute() (error, io.Reader) {
 	cmdArgs := strings.Fields(cmdString)
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:len(cmdArgs)]...)
 
-	stdout, _ := cmd.StdoutPipe()
-	cmd.Start()
-	oneByte := make([]byte, 100)
-	num := 1
-	for {
-		_, err := stdout.Read(oneByte)
-		if err != nil {
-			fmt.Printf(err.Error())
-			break
-		}
-
-		r := bufio.NewReader(stdout)
-		line, _, _ := r.ReadLine()
-		fmt.Println(string(line))
-		num = num + 1
-		if num > 3 {
-			os.Exit(0)
-		}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		ChaosCommandExecutorLogger.Errorf("Error while executing output pipe %v", err)
 	}
 
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		ChaosCommandExecutorLogger.Errorf("Error while executing Error pipe %v", err)
+	}
+
+	err = cmd.Start()
+	if err != nil {
+		ChaosCommandExecutorLogger.Errorf("Error while starting command %v", err)
+	}
+
+	lines, _ := ioutil.ReadAll(stdout)
+	fmt.Println("Output : " + string(lines))
+
+	errorLines, _ := ioutil.ReadAll(stderr)
+	fmt.Println("Error : " + string(errorLines))
+
 	cmd.Wait()
-
-	return nil, nil
+	return nil, strings.NewReader(string(lines)), strings.NewReader(string(errorLines))
 }
-
-// func main() {
-
-// 	loggo.ReplaceDefaultWriter(loggocolor.NewWriter(os.Stdout))
-
-// 	c := ChaosCommand{}
-// 	c.operation = "ping"
-// 	c.args = []Arg{
-// 		ArgInit("arg1", "value1"),
-// 		ArgInit("arg2", "value2"),
-// 	}
-
-// 	c.Execute()
-
-// 	path, err := exec.LookPath("fortune")
-// 	if err != nil {
-// 		log.Fatal("installing fortune is in your future")
-// 	}
-// 	fmt.Printf("fortune is available at %s\n", path)
-
-// }

@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -24,8 +25,11 @@ func (c *ChaosNetworkHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	fmt.Println("Service ChaosNetworkEmulatorSimulator is called " + vars["containerid"])
 
 	pause := cmdexec.CreateChaosNetworkEmulatorSimulator(vars["containerid"], r.Body)
-	err, _ := pause.Execute()
+	err, _, errorReader := pause.Execute()
 	if err != nil {
+		errorLines, _ := ioutil.ReadAll(errorReader)
+		w.Write([]byte("Error while applying Network Chaos " + "\n" + string(errorLines)))
+
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
